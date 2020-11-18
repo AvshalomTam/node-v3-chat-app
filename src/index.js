@@ -17,10 +17,13 @@ app.use(express.static(publicDirectoryPath))
 
 io.on('connection', (socket) => {
     console.log('New WebSocket connection')
-    // server sends data to client by emit function that runs on client side js on chat.js file
-    socket.emit('message', generateMessage("Welcome"))
-    // server activate messege event at the clients (accept the one that newly connected=broadcast)
-    socket.broadcast.emit('message', generateMessage('A new user has joined!'))
+
+    socket.on('join', ({username, room}) => {
+        socket.join(room)
+
+        socket.emit('message', generateMessage("Welcome"))
+        socket.broadcast.to(room).emit('message', generateMessage(`${username} has joined!`))
+    })
 
     // server listen to sendMessage event
     socket.on('sendMessage', (message, callback) => {
@@ -31,7 +34,7 @@ io.on('connection', (socket) => {
             return callback('Profanity is not allowed')
         }
         // server activate messege event at the clients
-        io.emit('message', generateMessage(message))
+        io.to('2').emit('message', generateMessage(message))
         callback()
     })
 
@@ -44,6 +47,8 @@ io.on('connection', (socket) => {
         io.emit('message', generateMessage('A user has disconnected!'))
     })
 })
+
+
 
 server.listen(port, () => {
     console.log(`Server is up on port ${port}`)
