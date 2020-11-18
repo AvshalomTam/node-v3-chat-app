@@ -16,6 +16,7 @@ socket.on('message', (message) => {
     console.log(message)
     // storing the final html we will render in browser - use Mustache liebrary
     const html = Mustache.render(messageTemplate, {
+        username: message.username,
         message: message.text,
         createdAt: moment(message.createdAt).format("H:mm a")
     })
@@ -27,6 +28,7 @@ socket.on('locationMessage', (locationURL) => {
     console.log(locationURL)
 
     const html = Mustache.render(locationTemplate, {
+        username: locationURL.username,
         url: locationURL.url,
         createdAt: moment(locationURL.createdAt).format("H:mm a")
     })
@@ -88,5 +90,11 @@ $sendLocationButton.addEventListener('click', () => {
     
 })
 
-socket.emit('join', {username, room})
+socket.emit('join', {username, room}, (error) => {
+    if (error) {
+        alert(error)
+        // if user cant join - redirect him to home page
+        location.href = '/'
+    }
+})
 

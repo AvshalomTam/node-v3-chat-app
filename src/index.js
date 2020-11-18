@@ -5,6 +5,7 @@ const socketio = require('socket.io')
 const Filter = require('bad-words')
 
 const {generateMessage, generateLocationMessage} = require('./utils/messaages')
+const {addUser, removeUser, getUser, getUsersInRoom} = require('./utils/users')
 
 const app = express()
 const server = http.createServer(app)
@@ -18,11 +19,20 @@ app.use(express.static(publicDirectoryPath))
 io.on('connection', (socket) => {
     console.log('New WebSocket connection')
 
-    socket.on('join', ({username, room}) => {
-        socket.join(room)
+    socket.on('join', ({username, room}, callback) => {
+        //save user details
+        const {error, user} = addUser({id: socket.id, username, room})
 
-        socket.emit('message', generateMessage("Welcome"))
-        socket.broadcast.to(room).emit('message', generateMessage(`${username} has joined!`))
+        if (error) {
+            return callback(error)
+        }
+
+        socket.join(user.room)
+
+        socket.emit('message', generateMessage('Admin', "Welcome"))
+        socket.broadcast.to(user.room).emit('message', generateMessage('Admin', `${user.username} has joined!`))
+
+        callback()
     })
 
     // server listen to sendMessage event
@@ -33,18 +43,25 @@ io.on('connection', (socket) => {
         if (filter.isProfane(message)) {
             return callback('Profanity is not allowed')
         }
+
+        const user = getUser(socket.id)
         // server activate messege event at the clients
-        io.to('2').emit('message', generateMessage(message))
+        io.to(user.room).emit('message', generateMessage(user.username, message))
         callback()
     })
 
     socket.on('sendLocation', (position, callback) => {
-        io.emit('locationMessage', generateLocationMessage(`https://google.com/maps?q=${position.latitude},${position.longitude}`))
+        const user = getUser(socket.id)
+
+        io.to(user.room).emit('locationMessage', generateLocationMessage(user.username, `https://google.com/maps?q=${position.latitude},${position.longitude}`))
         callback()
     })
 
     socket.on('disconnect', () => {
-        io.emit('message', generateMessage('A user has disconnected!'))
+        const user = removeUser(socket.id)
+        if (user) {
+            io.to(user.room).emit('message', generateMessage('Admin', `${user.username} has left!`))
+        }
     })
 })
 
